@@ -1,6 +1,13 @@
 // Service worker DailyOS : met en cache l'app shell pour un fonctionnement hors ligne.
-// Incrémenter CACHE_NAME à chaque changement de fichiers pour forcer la mise à jour du cache.
-const CACHE_NAME = "dailyos-cache-v1";
+//
+// Nom de cache versionné : CACHE_NAME doit être incrémenté ("dailyos-cache-v3",
+// "v4"...) à chaque déploiement qui change un fichier de l'app shell listé
+// ci-dessous. À l'activation, tous les caches DailyOS dont le nom ne
+// correspond plus à CACHE_NAME sont automatiquement supprimés (voir plus bas).
+// Ce mécanisme ne touche jamais au localStorage : les données utilisateur
+// (tâches, planning, projets, courses, notes, paramètres) ne sont jamais
+// stockées ici et ne sont donc jamais concernées par ce nettoyage.
+const CACHE_NAME = "dailyos-cache-v2";
 
 const APP_SHELL = [
   "./",
@@ -14,6 +21,8 @@ const APP_SHELL = [
   "./js/icons.js",
   "./js/components.js",
   "./js/modal.js",
+  "./js/update.js",
+  "./js/version.js",
   "./js/views/home.js",
   "./js/views/tasks.js",
   "./js/views/planning.js",
@@ -35,9 +44,19 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
+      // supprime uniquement les caches DailyOS (Cache Storage) obsolètes —
+      // n'affecte jamais le localStorage où vivent les données utilisateur.
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// Permet à la page (bouton "Vider le cache et mettre à jour" des Paramètres)
+// de demander l'activation immédiate d'un service worker en attente.
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING" || event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {

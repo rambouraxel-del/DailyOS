@@ -4,6 +4,8 @@ import { icon } from "./icons.js";
 import * as store from "./storage.js";
 import { toISODate } from "./date-utils.js";
 import { escapeHTML } from "./components.js";
+import { clearAppCacheAndPrepareUpdate, reloadFreshApp } from "./update.js";
+import { APP_VERSION, BUILD_DATE } from "./version.js";
 
 const overlay = document.getElementById("modal-overlay");
 const sheet = document.getElementById("modal-sheet");
@@ -328,6 +330,22 @@ export function openSettingsModal() {
       <p>Réinitialiser toutes les données de l'application (tâches, planning, projets, courses, notes).</p>
       <button class="btn-danger-text" id="settings-reset">${icon("trash", { size: 16 })} Réinitialiser les données</button>
     </div>
+
+    <div class="project-body">
+      <div>
+        <div class="project-body-label">Application</div>
+        <p class="settings-app-text">
+          Si l'application semble bloquée sur une ancienne version, tu peux vider le cache applicatif
+          et recharger la dernière version. Tes données personnelles seront conservées.
+        </p>
+        <button class="btn-secondary" id="settings-update-btn" style="width:100%; justify-content:center;">
+          ${icon("refresh", { size: 17 })} Vider le cache et mettre à jour
+        </button>
+        <p class="settings-app-subtext">Les tâches, projets, notes, courses et événements ne seront pas supprimés.</p>
+        <p class="settings-app-status" id="settings-update-status" aria-live="polite"></p>
+        <p class="settings-version">Version ${APP_VERSION} · Build ${BUILD_DATE}</p>
+      </div>
+    </div>
   `);
 
   let weatherEnabled = s.weatherEnabled;
@@ -349,6 +367,27 @@ export function openSettingsModal() {
       store.resetAll();
       closeModal();
       onAfterChange();
+    }
+  });
+
+  const updateBtn = sheet.querySelector("#settings-update-btn");
+  const updateStatus = sheet.querySelector("#settings-update-status");
+  updateBtn.addEventListener("click", async () => {
+    updateBtn.disabled = true;
+    updateBtn.style.opacity = "0.6";
+    updateStatus.textContent = "Mise à jour…";
+    try {
+      // Ne vide que le Cache Storage / service worker : les données
+      // utilisateur en localStorage ne sont jamais touchées par cette action.
+      await clearAppCacheAndPrepareUpdate();
+      updateStatus.textContent = "Cache vidé, rechargement…";
+      setTimeout(reloadFreshApp, 500);
+    } catch (err) {
+      console.warn("Échec de la mise à jour du cache :", err);
+      updateStatus.textContent =
+        "Impossible de vider le cache automatiquement. Essaie de fermer puis rouvrir l'application.";
+      updateBtn.disabled = false;
+      updateBtn.style.opacity = "";
     }
   });
 }
