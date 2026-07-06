@@ -78,3 +78,8 @@ export function escapeHTML(str) {
 export function emptyState(text) {
   return `<div class="empty-state">${escapeHTML(text)}</div>`;
 }
+
+/** Échappement minimal pour insérer une valeur dans un attribut HTML (ex: value="..."). */
+export function escapeAttrValue(str) {
+  return String(str ?? "").replace(/"/g, "&quot;");
+}

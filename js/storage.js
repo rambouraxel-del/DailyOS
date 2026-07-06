@@ -58,6 +58,7 @@ function seedData() {
       city: "",
       weatherEnabled: true,
       lastWeather: null,
+      groceryCategories: ["Fruits & légumes", "Frais", "Épicerie", "Autres"],
     },
   };
 }
@@ -80,6 +81,24 @@ function load() {
     // compatibilité ascendante : les tâches enregistrées avant l'ajout du
     // commentaire/de la deadline n'ont pas ces clés -> on leur donne une valeur vide.
     merged.tasks = (merged.tasks || []).map((t) => ({ comment: "", deadline: "", ...t }));
+
+    // compatibilité ascendante : catégories de courses. Si la liste n'existe
+    // pas encore (ou est vide), on repart des catégories par défaut. Les
+    // articles sans catégorie reçoivent "Autres" ; si un article référence
+    // une catégorie absente de la liste, on l'ajoute plutôt que de perdre
+    // l'information (aucune donnée n'est jamais supprimée silencieusement).
+    merged.settings.groceryCategories =
+      merged.settings.groceryCategories && merged.settings.groceryCategories.length
+        ? merged.settings.groceryCategories
+        : [...seed.settings.groceryCategories];
+    merged.groceries = (merged.groceries || []).map((g) => ({ category: "Autres", ...g }));
+    merged.groceries.forEach((g) => {
+      if (!g.category) g.category = "Autres";
+      if (!merged.settings.groceryCategories.includes(g.category)) {
+        merged.settings.groceryCategories.push(g.category);
+      }
+    });
+
     return merged;
   } catch (e) {
     console.warn("Impossible de lire les données locales, réinitialisation.", e);
@@ -223,14 +242,68 @@ export function toggleGrocery(id) {
   if (g) g.done = !g.done;
   persist();
 }
-export function updateGrocery(id, name) {
+export function updateGrocery(id, patch) {
   const g = state.groceries.find((g) => g.id === id);
-  if (g) g.name = name.trim();
+  if (g) {
+    if (typeof patch === "string") {
+      // compatibilité avec l'ancien appel updateGrocery(id, "nouveau nom")
+      g.name = patch.trim();
+    } else {
+      if (patch.name !== undefined) patch.name = patch.name.trim();
+      Object.assign(g, patch);
+    }
+  }
   persist();
 }
 export function deleteGrocery(id) {
   state.groceries = state.groceries.filter((g) => g.id !== id);
   persist();
+}
+
+// ---------- Catégories de courses ----------
+export function addGroceryCategory(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return { ok: false, error: "empty" };
+  const exists = state.settings.groceryCategories.some((c) => c.toLowerCase() === trimmed.toLowerCase());
+  if (exists) return { ok: false, error: "duplicate" };
+  state.settings.groceryCategories.push(trimmed);
+  persist();
+  return { ok: true };
+}
+
+export function renameGroceryCategory(oldName, newName) {
+  const trimmed = (newName || "").trim();
+  if (!trimmed) return { ok: false, error: "empty" };
+  const duplicate = state.settings.groceryCategories.some(
+    (c) => c !== oldName && c.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (duplicate) return { ok: false, error: "duplicate" };
+  const idx = state.settings.groceryCategories.indexOf(oldName);
+  if (idx === -1) return { ok: false, error: "not-found" };
+  state.settings.groceryCategories[idx] = trimmed;
+  state.groceries.forEach((g) => {
+    if (g.category === oldName) g.category = trimmed;
+  });
+  persist();
+  return { ok: true };
+}
+
+export function deleteGroceryCategory(name, reassignTo) {
+  const categories = state.settings.groceryCategories;
+  if (categories.length <= 1) return { ok: false, error: "last-category" };
+  const idx = categories.indexOf(name);
+  if (idx === -1) return { ok: false, error: "not-found" };
+  const itemsInCategory = state.groceries.filter((g) => g.category === name);
+  if (itemsInCategory.length > 0) {
+    const target =
+      reassignTo && reassignTo !== name && categories.includes(reassignTo)
+        ? reassignTo
+        : categories.find((c) => c !== name && c === "Autres") || categories.find((c) => c !== name);
+    itemsInCategory.forEach((g) => (g.category = target));
+  }
+  categories.splice(idx, 1);
+  persist();
+  return { ok: true };
 }
 
 // ---------- Notes ----------

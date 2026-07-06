@@ -69,6 +69,46 @@ export function formatDeadline(deadlineISO) {
   return `En retard de ${Math.abs(diffDays)} j`;
 }
 
+/** Retourne le lundi (ISO) de la semaine contenant isoDate. */
+export function getWeekStart(isoDate) {
+  const d = new Date(isoDate + "T00:00:00");
+  const day = d.getDay(); // 0 = dimanche ... 6 = samedi
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return toISODate(d);
+}
+
+/** Les 7 dates ISO de la semaine (lundi -> dimanche) contenant mondayISO. */
+export function getWeekDays(mondayISO) {
+  return Array.from({ length: 7 }, (_, i) => addDays(mondayISO, i));
+}
+
+/** "Semaine du 6 au 12 juillet" (ou "du 30 juin au 6 juillet" si la semaine chevauche deux mois). */
+export function formatWeekRangeFR(mondayISO) {
+  const start = new Date(mondayISO + "T00:00:00");
+  const sundayISO = addDays(mondayISO, 6);
+  const end = new Date(sundayISO + "T00:00:00");
+  const startMonth = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(start);
+  const endMonth = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(end);
+  if (startMonth === endMonth) {
+    return `Semaine du ${start.getDate()} au ${end.getDate()} ${endMonth}`;
+  }
+  return `Semaine du ${start.getDate()} ${startMonth} au ${end.getDate()} ${endMonth}`;
+}
+
+/** "Lundi", "Mardi"... */
+export function formatWeekdayFR(isoDate) {
+  const str = new Intl.DateTimeFormat("fr-FR", { weekday: "long" }).format(new Date(isoDate + "T00:00:00"));
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/** "08/07" */
+export function formatShortDMY(isoDate) {
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" }).format(
+    new Date(isoDate + "T00:00:00")
+  );
+}
+
 export function formatNoteDate(timestamp) {
   return new Intl.DateTimeFormat("fr-FR", {
     day: "numeric",

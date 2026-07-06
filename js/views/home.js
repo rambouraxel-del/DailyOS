@@ -43,7 +43,7 @@ export function renderHome(state) {
     <div class="home-grid">
       <div class="glass-card today-card" data-action="go-tasks">
         <div class="card-header-row">
-          <h3>Aujourd'hui</h3>
+          <h3>Ma to-do list</h3>
           <span class="badge badge-accent">${state.tasks.length} tâche${state.tasks.length > 1 ? "s" : ""}</span>
         </div>
         <ul class="check-list">
@@ -63,7 +63,7 @@ export function renderHome(state) {
 
       <div class="glass-card planning-card" data-action="go-planning">
         <div class="card-header-row">
-          <h3>Planning</h3>
+          <h3>Mon agenda</h3>
           <span class="badge">${todaysEvents.length}</span>
         </div>
         <div class="mini-event-list">

@@ -3,7 +3,7 @@
 import { icon } from "./icons.js";
 import * as store from "./storage.js";
 import { toISODate } from "./date-utils.js";
-import { escapeHTML } from "./components.js";
+import { escapeHTML, escapeAttrValue as escapeAttr } from "./components.js";
 import { clearAppCacheAndPrepareUpdate, reloadFreshApp } from "./update.js";
 import { APP_VERSION, BUILD_DATE } from "./version.js";
 
@@ -84,6 +84,16 @@ sheet?.addEventListener("click", (e) => {
   if (colorBtn) {
     colorBtn.parentElement.querySelectorAll(".color-swatch").forEach((s) => s.classList.remove("selected"));
     colorBtn.classList.add("selected");
+    return;
+  }
+  const renameCatBtn = e.target.closest('[data-action="rename-grocery-category"]');
+  if (renameCatBtn) {
+    handleRenameGroceryCategory(renameCatBtn.dataset.cat);
+    return;
+  }
+  const deleteCatBtn = e.target.closest('[data-action="delete-grocery-category"]');
+  if (deleteCatBtn) {
+    handleDeleteGroceryCategory(deleteCatBtn.dataset.cat);
   }
 });
 
@@ -139,33 +149,53 @@ function taskForm(existing) {
   });
 }
 
-function groceryForm() {
+function groceryForm(existing) {
+  const isEdit = !!existing;
+  const categories = store.getState().settings.groceryCategories;
+  const fallback = categories.includes("Autres") ? "Autres" : categories[0];
+  const defaultCat = (existing?.category && categories.includes(existing.category)) ? existing.category : fallback;
+  const options = categories
+    .map((c) => `<option value="${escapeAttr(c)}" ${c === defaultCat ? "selected" : ""}>${escapeHTML(c)}</option>`)
+    .join("");
   open(`
     <div class="modal-header">
-      <h2>Nouvel article</h2>
+      <h2>${isEdit ? "Modifier l'article" : "Nouvel article"}</h2>
       <button class="btn-icon" data-action="close-modal">${icon("close", { size: 18 })}</button>
     </div>
     <form id="quick-form">
       <div class="field">
         <label>Article</label>
-        <input class="input" name="title" placeholder="Ex : Bananes" required autofocus />
+        <input class="input" name="title" placeholder="Ex : Bananes" required autofocus value="${escapeAttr(existing?.name || "")}" />
       </div>
       <div class="field">
         <label>Catégorie</label>
-        <select class="input" name="category">
-          <option value="Fruits & légumes">Fruits & légumes</option>
-          <option value="Frais">Frais</option>
-          <option value="Épicerie">Épicerie</option>
-          <option value="Autres" selected>Autres</option>
-        </select>
+        <select class="input" name="category">${options}</select>
       </div>
-      <button type="submit" class="btn-primary">${icon("plus", { size: 18 })} Ajouter l'article</button>
+      <div class="modal-actions">
+        ${isEdit ? `<button type="button" class="btn-secondary" data-action="delete-grocery-in-modal" data-id="${existing.id}">${icon("trash", { size: 17 })} Supprimer</button>` : ""}
+        <button type="submit" class="btn-primary">${icon(isEdit ? "check" : "plus", { size: 18 })} ${isEdit ? "Enregistrer" : "Ajouter l'article"}</button>
+      </div>
     </form>
   `);
+
+  sheet.querySelector('[data-action="delete-grocery-in-modal"]')?.addEventListener("click", () => {
+    store.deleteGrocery(existing.id);
+    closeModal();
+    onAfterChange();
+  });
+
   bindSimpleForm((data) => {
     if (!data.title.trim()) return;
-    store.addGrocery(data.title, data.category);
+    if (isEdit) {
+      store.updateGrocery(existing.id, { name: data.title, category: data.category });
+    } else {
+      store.addGrocery(data.title, data.category);
+    }
   });
+}
+
+export function openGroceryModal(existingGrocery) {
+  groceryForm(existingGrocery);
 }
 
 function noteForm() {
@@ -303,8 +333,93 @@ function bindSimpleForm(onSubmit) {
   });
 }
 
-function escapeAttr(str) {
-  return String(str).replace(/"/g, "&quot;");
+/* ---------- Personnaliser les catégories de courses ---------- */
+export function openGroceryCategoriesModal() {
+  const categories = store.getState().settings.groceryCategories;
+  open(`
+    <div class="modal-header">
+      <h2>Catégories de courses</h2>
+      <button class="btn-icon" data-action="close-modal">${icon("close", { size: 18 })}</button>
+    </div>
+    <div class="glass-card" style="padding: 6px 16px; margin-bottom: 16px;">
+      <ul class="check-list">
+        ${categories
+          .map(
+            (cat) => `
+          <li class="check-row">
+            <span class="check-row-label">${escapeHTML(cat)}</span>
+            <span class="check-row-actions">
+              <button class="icon-btn-sm" data-action="rename-grocery-category" data-cat="${escapeAttr(cat)}" aria-label="Renommer">${icon("edit", { size: 16 })}</button>
+              <button class="icon-btn-sm" data-action="delete-grocery-category" data-cat="${escapeAttr(cat)}" aria-label="Supprimer">${icon("trash", { size: 16 })}</button>
+            </span>
+          </li>`
+          )
+          .join("")}
+      </ul>
+    </div>
+    <form id="add-category-form" class="quick-add-row">
+      <input class="input" name="name" placeholder="Nouvelle catégorie…" required />
+      <button type="submit" class="btn-icon">${icon("plus", { size: 20 })}</button>
+    </form>
+    <p class="settings-app-status" id="category-modal-status" aria-live="polite"></p>
+  `);
+
+  sheet.querySelector("#add-category-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const input = form.querySelector('input[name="name"]');
+    const result = store.addGroceryCategory(input.value);
+    if (!result.ok) {
+      showCategoryStatus(result.error === "duplicate" ? "Cette catégorie existe déjà." : "Le nom ne peut pas être vide.");
+      return;
+    }
+    onAfterChange();
+    openGroceryCategoriesModal();
+  });
+}
+
+function showCategoryStatus(message) {
+  const statusEl = sheet.querySelector("#category-modal-status");
+  if (statusEl) statusEl.textContent = message;
+}
+
+function handleRenameGroceryCategory(cat) {
+  const value = prompt("Renommer la catégorie :", cat);
+  if (value === null) return;
+  const result = store.renameGroceryCategory(cat, value);
+  if (!result.ok) {
+    if (result.error === "duplicate") alert("Une catégorie porte déjà ce nom.");
+    else if (result.error === "empty") alert("Le nom ne peut pas être vide.");
+    return;
+  }
+  onAfterChange();
+  openGroceryCategoriesModal();
+}
+
+function handleDeleteGroceryCategory(cat) {
+  const categories = store.getState().settings.groceryCategories;
+  if (categories.length <= 1) {
+    alert("Il doit toujours rester au moins une catégorie.");
+    return;
+  }
+  const count = store.getState().groceries.filter((g) => g.category === cat).length;
+  let target = null;
+  if (count > 0) {
+    const others = categories.filter((c) => c !== cat);
+    const defaultTarget = others.includes("Autres") ? "Autres" : others[0];
+    const choice = prompt(
+      `"${cat}" contient ${count} article${count > 1 ? "s" : ""}. Vers quelle catégorie les déplacer ?\n(${others.join(", ")})`,
+      defaultTarget
+    );
+    if (choice === null) return;
+    target = others.find((c) => c.toLowerCase() === choice.trim().toLowerCase()) || defaultTarget;
+  } else if (!confirm(`Supprimer la catégorie "${cat}" ?`)) {
+    return;
+  }
+  const result = store.deleteGroceryCategory(cat, target);
+  if (!result.ok) return;
+  onAfterChange();
+  openGroceryCategoriesModal();
 }
 
 /* ---------- Paramètres ---------- */

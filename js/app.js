@@ -16,8 +16,10 @@ const ui = {
   taskFilter: "all",
   taskSort: "created",
   planningDate: toISODate(new Date()),
+  agendaMode: "day",
   expandedProjectId: null,
   currentNoteId: null,
+  lastGroceryCategory: "Autres",
 };
 
 function navigate(view, opts = {}) {
@@ -53,11 +55,11 @@ function buildViewHTML(state) {
     case "tasks":
       return renderTasks(state, ui.taskFilter, ui.taskSort);
     case "planning":
-      return renderPlanning(state, ui.planningDate);
+      return renderPlanning(state, ui.planningDate, ui.agendaMode);
     case "projects":
       return renderProjects(state, ui.expandedProjectId);
     case "groceries":
-      return renderGroceries(state);
+      return renderGroceries(state, ui.lastGroceryCategory);
     case "notes":
       return renderNotes(state);
     case "note-detail": {
@@ -133,9 +135,11 @@ document.addEventListener("click", (e) => {
       }
       break;
     }
-    case "open-add-event":
-      modal.openEventModal(null, ui.planningDate);
+    case "open-add-event": {
+      const date = target.dataset.date || ui.planningDate;
+      modal.openEventModal(null, date);
       break;
+    }
     case "edit-event": {
       const evt = store.getState().events.find((e) => e.id === id);
       if (evt) modal.openEventModal(evt, evt.date);
@@ -178,15 +182,6 @@ document.addEventListener("click", (e) => {
       store.deleteGrocery(id);
       render();
       break;
-    case "edit-grocery": {
-      const g = store.getState().groceries.find((g) => g.id === id);
-      const value = prompt("Modifier l'article :", g?.name || "");
-      if (value !== null && value.trim()) {
-        store.updateGrocery(id, value);
-        render();
-      }
-      break;
-    }
 
     case "toggle-project":
       ui.expandedProjectId = ui.expandedProjectId === id ? null : id;
@@ -236,6 +231,27 @@ document.addEventListener("click", (e) => {
       ui.planningDate = addDays(ui.planningDate, 1);
       render();
       break;
+    case "prev-week":
+      ui.planningDate = addDays(ui.planningDate, -7);
+      render();
+      break;
+    case "next-week":
+      ui.planningDate = addDays(ui.planningDate, 7);
+      render();
+      break;
+    case "set-agenda-mode":
+      ui.agendaMode = target.dataset.mode;
+      render();
+      break;
+
+    case "open-grocery-categories":
+      modal.openGroceryCategoriesModal();
+      break;
+    case "edit-grocery": {
+      const g = store.getState().groceries.find((g) => g.id === id);
+      if (g) modal.openGroceryModal(g);
+      break;
+    }
   }
 });
 
@@ -251,8 +267,11 @@ document.addEventListener("submit", (e) => {
   } else if (e.target.id === "add-grocery-form") {
     e.preventDefault();
     const input = e.target.querySelector('input[name="title"]');
+    const categorySelect = e.target.querySelector('select[name="category"]');
     if (input.value.trim()) {
-      store.addGrocery(input.value);
+      const category = categorySelect?.value || "Autres";
+      ui.lastGroceryCategory = category;
+      store.addGrocery(input.value, category);
       render();
     }
   } else if (e.target.dataset.action === "add-project-task-form") {
