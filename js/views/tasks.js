@@ -1,8 +1,8 @@
 import { icon } from "../icons.js";
-import { checkRow, sortByDoneThenDate, emptyState } from "../components.js";
+import { checkRow, sortTasks, emptyState } from "../components.js";
 
-export function renderTasks(state, filter = "all") {
-  const sorted = sortByDoneThenDate(state.tasks);
+export function renderTasks(state, filter = "all", sortBy = "created") {
+  const sorted = sortTasks(state.tasks, sortBy);
   const filtered = sorted.filter((t) => {
     if (filter === "active") return !t.done;
     if (filter === "done") return t.done;
@@ -26,6 +26,14 @@ export function renderTasks(state, filter = "all") {
       <button data-action="filter-tasks" data-filter="all" class="${filter === "all" ? "active" : ""}">Toutes</button>
       <button data-action="filter-tasks" data-filter="active" class="${filter === "active" ? "active" : ""}">À faire</button>
       <button data-action="filter-tasks" data-filter="done" class="${filter === "done" ? "active" : ""}">Terminées</button>
+    </div>
+
+    <div class="sort-row">
+      <span>Trier par</span>
+      <div class="sort-options">
+        <button data-action="sort-tasks" data-sort="created" class="${sortBy === "created" ? "active" : ""}">Création</button>
+        <button data-action="sort-tasks" data-sort="deadline" class="${sortBy === "deadline" ? "active" : ""}">Deadline</button>
+      </div>
     </div>
 
     <div class="glass-card" style="padding: 6px 16px;">

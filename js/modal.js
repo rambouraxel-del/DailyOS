@@ -3,6 +3,7 @@
 import { icon } from "./icons.js";
 import * as store from "./storage.js";
 import { toISODate } from "./date-utils.js";
+import { escapeHTML } from "./components.js";
 
 const overlay = document.getElementById("modal-overlay");
 const sheet = document.getElementById("modal-sheet");
@@ -92,23 +93,47 @@ function renderFormFor(type, existing, defaultDate) {
   if (type === "event") return eventForm(existing, defaultDate);
 }
 
-function taskForm() {
+function taskForm(existing) {
+  const isEdit = !!existing;
   open(`
     <div class="modal-header">
-      <h2>Nouvelle tâche</h2>
+      <h2>${isEdit ? "Modifier la tâche" : "Nouvelle tâche"}</h2>
       <button class="btn-icon" data-action="close-modal">${icon("close", { size: 18 })}</button>
     </div>
     <form id="quick-form">
       <div class="field">
         <label>Titre</label>
-        <input class="input" name="title" placeholder="Ex : Appeler le dentiste" required autofocus />
+        <input class="input" name="title" placeholder="Ex : Appeler le dentiste" required autofocus value="${escapeAttr(existing?.title || "")}" />
       </div>
-      <button type="submit" class="btn-primary">${icon("plus", { size: 18 })} Ajouter la tâche</button>
+      <div class="field">
+        <label>Deadline (optionnel)</label>
+        <input class="input" type="date" name="deadline" value="${existing?.deadline || ""}" />
+      </div>
+      <div class="field">
+        <label>Commentaire (optionnel)</label>
+        <textarea class="textarea" name="comment" rows="2" placeholder="Ajouter un détail…">${escapeHTML(existing?.comment || "")}</textarea>
+      </div>
+      <div class="modal-actions">
+        ${isEdit ? `<button type="button" class="btn-secondary" data-action="delete-task-in-modal" data-id="${existing.id}">${icon("trash", { size: 17 })} Supprimer</button>` : ""}
+        <button type="submit" class="btn-primary">${icon(isEdit ? "check" : "plus", { size: 18 })} ${isEdit ? "Enregistrer" : "Ajouter la tâche"}</button>
+      </div>
     </form>
   `);
+
+  sheet.querySelector('[data-action="delete-task-in-modal"]')?.addEventListener("click", () => {
+    store.deleteTask(existing.id);
+    closeModal();
+    onAfterChange();
+  });
+
   bindSimpleForm((data) => {
     if (!data.title.trim()) return;
-    store.addTask(data.title);
+    const extra = { comment: data.comment || "", deadline: data.deadline || "" };
+    if (isEdit) {
+      store.updateTask(existing.id, { title: data.title, ...extra });
+    } else {
+      store.addTask(data.title, extra);
+    }
   });
 }
 
@@ -254,6 +279,10 @@ function eventForm(existing, defaultDate) {
 
 export function openEventModal(existingEvent, defaultDate) {
   eventForm(existingEvent, defaultDate);
+}
+
+export function openTaskModal(existingTask) {
+  taskForm(existingTask);
 }
 
 export function openAddModalForType(type, defaultDate = null) {

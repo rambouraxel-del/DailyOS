@@ -53,6 +53,22 @@ export function formatRelativeDayFR(isoDate) {
   return formatShortDateFR(new Date(isoDate + "T00:00:00"));
 }
 
+/**
+ * Formate une deadline de tâche (YYYY-MM-DD) en texte relatif sobre.
+ * Retourne null si aucune deadline (rien à afficher).
+ */
+export function formatDeadline(deadlineISO) {
+  if (!deadlineISO) return null;
+  const today = toISODate(new Date());
+  const diffDays = Math.round(
+    (new Date(deadlineISO + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
+  );
+  if (diffDays === 0) return "Aujourd'hui";
+  if (diffDays === 1) return "Demain";
+  if (diffDays > 1) return `J-${diffDays}`;
+  return `En retard de ${Math.abs(diffDays)} j`;
+}
+
 export function formatNoteDate(timestamp) {
   return new Intl.DateTimeFormat("fr-FR", {
     day: "numeric",

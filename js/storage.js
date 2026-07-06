@@ -19,11 +19,11 @@ function seedData() {
   return {
     version: STORAGE_VERSION,
     tasks: [
-      { id: uid(), title: "Séance de sport", done: true, createdAt: Date.now() - 5000, category: "" },
-      { id: uid(), title: "Appeler le client", done: false, createdAt: Date.now() - 4000, category: "" },
-      { id: uid(), title: "Préparer présentation", done: false, createdAt: Date.now() - 3000, category: "" },
-      { id: uid(), title: "Répondre aux emails", done: false, createdAt: Date.now() - 2000, category: "" },
-      { id: uid(), title: "Lire 20 pages", done: false, createdAt: Date.now() - 1000, category: "" },
+      { id: uid(), title: "Séance de sport", done: true, createdAt: Date.now() - 5000, category: "", comment: "", deadline: "" },
+      { id: uid(), title: "Appeler le client", done: false, createdAt: Date.now() - 4000, category: "", comment: "", deadline: "" },
+      { id: uid(), title: "Préparer présentation", done: false, createdAt: Date.now() - 3000, category: "", comment: "", deadline: todayISO() },
+      { id: uid(), title: "Répondre aux emails", done: false, createdAt: Date.now() - 2000, category: "", comment: "", deadline: "" },
+      { id: uid(), title: "Lire 20 pages", done: false, createdAt: Date.now() - 1000, category: "", comment: "Chapitre 4 en cours", deadline: "" },
     ],
     events: [
       { id: uid(), title: "Sport", startTime: "07:00", endTime: "08:00", color: "green", date: today, description: "" },
@@ -72,11 +72,15 @@ function load() {
     if (!parsed || typeof parsed !== "object") return seedData();
     // fusion défensive avec les clés attendues, au cas où une version future ajoute des champs
     const seed = seedData();
-    return {
+    const merged = {
       ...seed,
       ...parsed,
       settings: { ...seed.settings, ...(parsed.settings || {}) },
     };
+    // compatibilité ascendante : les tâches enregistrées avant l'ajout du
+    // commentaire/de la deadline n'ont pas ces clés -> on leur donne une valeur vide.
+    merged.tasks = (merged.tasks || []).map((t) => ({ comment: "", deadline: "", ...t }));
+    return merged;
   } catch (e) {
     console.warn("Impossible de lire les données locales, réinitialisation.", e);
     return seedData();
@@ -99,8 +103,16 @@ export function resetAll() {
 }
 
 // ---------- Tâches (globales) ----------
-export function addTask(title, category = "") {
-  const task = { id: uid(), title: title.trim(), done: false, createdAt: Date.now(), category };
+export function addTask(title, extra = {}) {
+  const task = {
+    id: uid(),
+    title: title.trim(),
+    done: false,
+    createdAt: Date.now(),
+    category: extra.category || "",
+    comment: extra.comment?.trim() || "",
+    deadline: extra.deadline || "",
+  };
   state.tasks.push(task);
   persist();
   return task;
@@ -110,9 +122,18 @@ export function toggleTask(id) {
   if (t) t.done = !t.done;
   persist();
 }
-export function updateTask(id, title) {
+export function updateTask(id, patch) {
   const t = state.tasks.find((t) => t.id === id);
-  if (t) t.title = title.trim();
+  if (t) {
+    if (typeof patch === "string") {
+      // compatibilité avec l'ancien appel updateTask(id, "nouveau titre")
+      t.title = patch.trim();
+    } else {
+      if (patch.title !== undefined) patch.title = patch.title.trim();
+      if (patch.comment !== undefined) patch.comment = patch.comment.trim();
+      Object.assign(t, patch);
+    }
+  }
   persist();
 }
 export function deleteTask(id) {

@@ -14,6 +14,7 @@ const navItems = document.querySelectorAll(".nav-item[data-view]");
 const ui = {
   view: "home",
   taskFilter: "all",
+  taskSort: "created",
   planningDate: toISODate(new Date()),
   expandedProjectId: null,
   currentNoteId: null,
@@ -50,7 +51,7 @@ function buildViewHTML(state) {
     case "home":
       return renderHome(state);
     case "tasks":
-      return renderTasks(state, ui.taskFilter);
+      return renderTasks(state, ui.taskFilter, ui.taskSort);
     case "planning":
       return renderPlanning(state, ui.planningDate);
     case "projects":
@@ -157,15 +158,15 @@ document.addEventListener("click", (e) => {
       break;
     case "edit-task": {
       const t = store.getState().tasks.find((t) => t.id === id);
-      const value = prompt("Modifier la tâche :", t?.title || "");
-      if (value !== null && value.trim()) {
-        store.updateTask(id, value);
-        render();
-      }
+      if (t) modal.openTaskModal(t);
       break;
     }
     case "filter-tasks":
       ui.taskFilter = target.dataset.filter;
+      render();
+      break;
+    case "sort-tasks":
+      ui.taskSort = target.dataset.sort;
       render();
       break;
 
