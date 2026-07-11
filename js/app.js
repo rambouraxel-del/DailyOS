@@ -4,7 +4,10 @@ import { renderTasks } from "./views/tasks.js";
 import { renderPlanning } from "./views/planning.js";
 import { renderProjects } from "./views/projects.js";
 import { renderGroceries } from "./views/groceries.js";
-import { renderNotes, renderNoteDetail } from "./views/notes.js";
+import { renderNotes } from "./views/notes.js";
+import { renderNoteDetail, attachNoteEditorAutosave } from "./views/notes-editor.js";
+import { renderNotesTree } from "./views/notes-tree.js";
+import { renderNotesMindMap } from "./views/notes-mindmap.js";
 import * as modal from "./modal.js";
 import { toISODate, addDays } from "./date-utils.js";
 
@@ -20,6 +23,10 @@ const ui = {
   expandedProjectId: null,
   currentNoteId: null,
   lastGroceryCategory: "Autres",
+  notesSearchQuery: "",
+  notesFilter: "all",
+  treeCollapsed: new Set(),
+  mindMapRootId: null,
 };
 
 function navigate(view, opts = {}) {
@@ -41,7 +48,10 @@ function render() {
     loadWeatherInto(document.getElementById("weather-slot"), state.settings);
   }
   if (ui.view === "note-detail") {
-    attachNoteEditor();
+    attachNoteEditorAutosave(viewRoot, ui.currentNoteId);
+  }
+  if (ui.view === "notes") {
+    attachNotesSearch();
   }
   if (ui.view === "projects" && ui.expandedProjectId) {
     attachProjectNotesAutosave();
@@ -61,15 +71,19 @@ function buildViewHTML(state) {
     case "groceries":
       return renderGroceries(state, ui.lastGroceryCategory);
     case "notes":
-      return renderNotes(state);
+      return renderNotes(state, { searchQuery: ui.notesSearchQuery, filter: ui.notesFilter });
     case "note-detail": {
       const note = state.notes.find((n) => n.id === ui.currentNoteId);
       if (!note) {
         ui.view = "notes";
-        return renderNotes(state);
+        return renderNotes(state, { searchQuery: ui.notesSearchQuery, filter: ui.notesFilter });
       }
-      return renderNoteDetail(note);
+      return renderNoteDetail(note, state);
     }
+    case "notes-tree":
+      return renderNotesTree(state, ui.treeCollapsed);
+    case "notes-mindmap":
+      return renderNotesMindMap(state, ui.mindMapRootId);
     default:
       return renderHome(state);
   }
@@ -81,14 +95,17 @@ function updateNavActive() {
   });
 }
 
-function attachNoteEditor() {
-  const titleInput = document.getElementById("note-title-input");
-  const contentInput = document.getElementById("note-content-input");
-  titleInput?.addEventListener("input", () => {
-    store.updateNote(ui.currentNoteId, { title: titleInput.value });
-  });
-  contentInput?.addEventListener("input", () => {
-    store.updateNote(ui.currentNoteId, { content: contentInput.value });
+function attachNotesSearch() {
+  const input = document.getElementById("notes-search-input");
+  input?.addEventListener("input", () => {
+    ui.notesSearchQuery = input.value;
+    render();
+    const freshInput = document.getElementById("notes-search-input");
+    if (freshInput) {
+      freshInput.focus();
+      const pos = freshInput.value.length;
+      freshInput.setSelectionRange(pos, pos);
+    }
   });
 }
 
@@ -216,12 +233,104 @@ document.addEventListener("click", (e) => {
     case "open-note":
       navigate("note-detail", { currentNoteId: id });
       break;
-    case "delete-note":
-      if (confirm("Supprimer cette note définitivement ?")) {
-        store.deleteNote(id);
-        navigate("notes");
+    case "delete-note": {
+      const note = store.getNote(id);
+      if (!note) break;
+      const parentId = note.parentId;
+      let result = store.deleteNote(id);
+      if (!result.ok && result.error === "has-children") {
+        const msg = `Cette note contient ${result.childCount} sous-note${result.childCount > 1 ? "s" : ""}. Supprimer cette note supprimera aussi ses sous-notes. Continuer ?`;
+        if (!confirm(msg)) break;
+        result = store.deleteNote(id, { cascade: true });
+      }
+      if (result.ok) {
+        navigate(parentId ? "note-detail" : "notes", parentId ? { currentNoteId: parentId } : {});
       }
       break;
+    }
+    case "duplicate-note": {
+      const copy = store.duplicateNote(id);
+      if (copy) navigate("note-detail", { currentNoteId: copy.id });
+      break;
+    }
+    case "toggle-note-favorite":
+      store.toggleNoteFavorite(id);
+      render();
+      break;
+    case "filter-notes":
+      ui.notesFilter = target.dataset.filter;
+      render();
+      break;
+    case "go-notes-tree":
+      navigate("notes-tree");
+      break;
+    case "go-notes-mindmap":
+      navigate("notes-mindmap");
+      break;
+    case "toggle-tree-node":
+      if (ui.treeCollapsed.has(id)) ui.treeCollapsed.delete(id);
+      else ui.treeCollapsed.add(id);
+      render();
+      break;
+    case "set-mindmap-root":
+      ui.mindMapRootId = id || null;
+      render();
+      break;
+    case "open-quick-idea":
+      modal.openQuickIdeaModal();
+      break;
+
+    case "open-add-block":
+      modal.openAddBlockModal(id);
+      break;
+    case "move-block-up":
+      store.moveBlock(target.dataset.noteId, target.dataset.blockId, "up");
+      render();
+      break;
+    case "move-block-down":
+      store.moveBlock(target.dataset.noteId, target.dataset.blockId, "down");
+      render();
+      break;
+    case "delete-block":
+      store.deleteBlock(target.dataset.noteId, target.dataset.blockId);
+      render();
+      break;
+    case "toggle-block-open": {
+      const { noteId, blockId } = target.dataset;
+      const block = store.getNote(noteId)?.blocks.find((b) => b.id === blockId);
+      if (block) {
+        store.updateBlock(noteId, blockId, { open: block.open === false });
+        render();
+      }
+      break;
+    }
+    case "toggle-checklist-item":
+      store.toggleChecklistItem(target.dataset.noteId, target.dataset.blockId, target.dataset.itemId);
+      render();
+      break;
+    case "delete-checklist-item":
+      store.deleteChecklistItem(target.dataset.noteId, target.dataset.blockId, target.dataset.itemId);
+      render();
+      break;
+    case "add-bullet-item": {
+      const { noteId, blockId } = target.dataset;
+      const block = store.getNote(noteId)?.blocks.find((b) => b.id === blockId);
+      if (block) {
+        store.updateBlock(noteId, blockId, { content: [...(block.content || []), ""] });
+        render();
+      }
+      break;
+    }
+    case "delete-bullet-item": {
+      const { noteId, blockId, index } = target.dataset;
+      const block = store.getNote(noteId)?.blocks.find((b) => b.id === blockId);
+      if (block) {
+        const content = (block.content || []).filter((_, i) => i !== Number(index));
+        store.updateBlock(noteId, blockId, { content });
+        render();
+      }
+      break;
+    }
 
     case "prev-day":
       ui.planningDate = addDays(ui.planningDate, -1);
@@ -255,6 +364,14 @@ document.addEventListener("click", (e) => {
   }
 });
 
+/* ---------- Délégation des changements (select) ---------- */
+document.addEventListener("change", (e) => {
+  const target = e.target.closest('[data-action="set-callout-variant"]');
+  if (!target) return;
+  store.updateBlock(target.dataset.noteId, target.dataset.blockId, { variant: target.value });
+  render();
+});
+
 /* ---------- Délégation des soumissions de formulaire ---------- */
 document.addEventListener("submit", (e) => {
   if (e.target.id === "add-task-form") {
@@ -280,6 +397,14 @@ document.addEventListener("submit", (e) => {
     const projectId = e.target.dataset.id;
     if (input.value.trim()) {
       store.addProjectTask(projectId, input.value);
+      render();
+    }
+  } else if (e.target.dataset.action === "add-checklist-item-form") {
+    e.preventDefault();
+    const input = e.target.querySelector('input[name="text"]');
+    const { noteId, blockId } = e.target.dataset;
+    if (input.value.trim()) {
+      store.addChecklistItem(noteId, blockId, input.value);
       render();
     }
   }

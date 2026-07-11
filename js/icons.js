@@ -32,6 +32,27 @@ const PATHS = {
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   location: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/>',
   refresh: '<path d="M4.5 12a7.5 7.5 0 0 1 12.62-5.5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.62 5.5"/><path d="M17.5 3.3v3.5h-3.5"/><path d="M6.5 20.7v-3.5h3.5"/>',
+
+  /* ---------- Notes en blocs ---------- */
+  star: '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8Z"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/>',
+  tag: '<path d="M3.5 11.5V5a1.5 1.5 0 0 1 1.5-1.5h6.5L20.5 12 12 20.5 3.5 12Z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/>',
+  chevronUp: '<path d="M6 15l6-6 6 6"/>',
+  bulletList: '<circle cx="4.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.1" fill="currentColor" stroke="none"/><path d="M9 6h11M9 12h11M9 18h11"/>',
+  paragraph: '<path d="M4 6h16M4 10h16M4 14h11M4 18h7"/>',
+  heading: '<path d="M6 5v14M17 5v14M6 12h11"/>',
+  subheading: '<path d="M5 6h14M5 12h14M5 18h8"/>',
+  toggleBlock: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M9.5 10l2.5 2.5 2.5-2.5"/>',
+  divider: '<path d="M4 12h16"/><path d="M4 9v6M20 9v6"/>',
+  tree: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="17" cy="12" r="2"/><path d="M6 7v10"/><path d="M6 12h9"/>',
+  network: '<circle cx="12" cy="4.5" r="2"/><circle cx="5" cy="18.5" r="2"/><circle cx="19" cy="18.5" r="2"/><path d="M12 6.5v3.5M12 10 6 16.5M12 10l6 6.5"/>',
+  calloutInfo: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/>',
+  calloutIdea: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6v.5h5.4v-.5c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3Z"/>',
+  calloutImportant: '<path d="M12 3.2 21 19.5H3Z"/><path d="M12 9.2v5"/><circle cx="12" cy="16.8" r="0.6" fill="currentColor" stroke="none"/>',
+  calloutWarning: '<path d="M12 3l7.8 7.8-7.8 7.8-7.8-7.8Z"/><path d="M12 8.5v4"/><circle cx="12" cy="15" r="0.6" fill="currentColor" stroke="none"/>',
+  calloutDecision: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.3 2.3 4.7-4.9"/>',
+  calloutQuestion: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.3 2-2.3 3.6"/><circle cx="12" cy="16.8" r="0.6" fill="currentColor" stroke="none"/>',
+  copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2.5"/>',
 };
 
 export function icon(name, { size = 22, className = "" } = {}) {

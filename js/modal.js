@@ -94,6 +94,11 @@ sheet?.addEventListener("click", (e) => {
   const deleteCatBtn = e.target.closest('[data-action="delete-grocery-category"]');
   if (deleteCatBtn) {
     handleDeleteGroceryCategory(deleteCatBtn.dataset.cat);
+    return;
+  }
+  const blockTypeBtn = e.target.closest('[data-action="choose-block-type"]');
+  if (blockTypeBtn) {
+    handleChooseBlockType(blockTypeBtn.dataset.type, sheet.dataset.blockNoteId);
   }
 });
 
@@ -196,6 +201,86 @@ function groceryForm(existing) {
 
 export function openGroceryModal(existingGrocery) {
   groceryForm(existingGrocery);
+}
+
+/* ---------- Notes en blocs : ajout de bloc + idée rapide ---------- */
+const BLOCK_TYPES = [
+  { type: "paragraph", label: "Texte", icon: "paragraph" },
+  { type: "heading", label: "Titre", icon: "heading" },
+  { type: "subheading", label: "Sous-titre", icon: "subheading" },
+  { type: "bulletList", label: "Liste", icon: "bulletList" },
+  { type: "checklist", label: "Checklist", icon: "tasks" },
+  { type: "callout", label: "Encadré", icon: "calloutInfo" },
+  { type: "toggle", label: "Menu déroulant", icon: "toggleBlock" },
+  { type: "childNote", label: "Sous-note", icon: "note" },
+  { type: "divider", label: "Séparateur", icon: "divider" },
+];
+
+const BLOCK_DEFAULTS = {
+  paragraph: { content: "" },
+  heading: { content: "" },
+  subheading: { content: "" },
+  bulletList: { content: [""] },
+  checklist: { items: [] },
+  callout: { variant: "info", content: "" },
+  toggle: { title: "", content: "", open: true },
+  divider: {},
+};
+
+export function openAddBlockModal(noteId) {
+  open(`
+    <div class="modal-header">
+      <h2>Ajouter un bloc</h2>
+      <button class="btn-icon" data-action="close-modal">${icon("close", { size: 18 })}</button>
+    </div>
+    <div class="type-grid">
+      ${BLOCK_TYPES.map(
+        (t) => `
+        <button type="button" class="type-choice" data-action="choose-block-type" data-type="${t.type}">
+          <span class="quick-icon accent-violet">${icon(t.icon, { size: 20 })}</span>
+          <span>${t.label}</span>
+        </button>`
+      ).join("")}
+    </div>
+  `);
+  sheet.dataset.blockNoteId = noteId;
+}
+
+function handleChooseBlockType(type, noteId) {
+  if (type === "childNote") {
+    const title = prompt("Titre de la sous-note :", "Nouvelle sous-note");
+    if (title === null) return;
+    store.addChildNote(noteId, title.trim() || "Nouvelle sous-note");
+  } else {
+    store.addBlock(noteId, { type, ...(BLOCK_DEFAULTS[type] || {}) });
+  }
+  closeModal();
+  onAfterChange();
+}
+
+export function openQuickIdeaModal() {
+  open(`
+    <div class="modal-header">
+      <h2>Idée rapide</h2>
+      <button class="btn-icon" data-action="close-modal">${icon("close", { size: 18 })}</button>
+    </div>
+    <form id="quick-form">
+      <div class="field">
+        <label>Ton idée</label>
+        <textarea class="textarea" name="idea" rows="4" placeholder="Écris ton idée, on s'occupe du rangement…" required autofocus></textarea>
+      </div>
+      <button type="submit" class="btn-primary">${icon("plus", { size: 18 })} Capturer l'idée</button>
+    </form>
+  `);
+  bindSimpleForm((data) => {
+    const text = data.idea.trim();
+    if (!text) return;
+    const words = text.split(/\s+/);
+    const title = words.slice(0, 6).join(" ") + (words.length > 6 ? "…" : "");
+    const note = store.addNote(title || "Idée rapide");
+    store.addBlock(note.id, { type: "paragraph", content: text });
+    store.updateNote(note.id, { tags: ["idée"] });
+  });
 }
 
 function noteForm() {
