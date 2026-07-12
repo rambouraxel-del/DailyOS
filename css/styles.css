@@ -1842,3 +1842,42 @@ select.input {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* ---------- Apprentissage ---------- */
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.doc-card .card-header-row {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.doc-name-input {
+  flex: 1;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 10px;
+}
+.doc-desc-input {
+  margin-bottom: 10px;
+}
+.doc-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.doc-card-footer .btn-chip {
+  flex: none;
+  padding: 8px 12px;
+}
+.btn-chip.active {
+  background: var(--green);
+  color: #05130a;
+  border-color: transparent;
+}
+.doc-card-footer .btn-secondary {
+  padding: 8px 12px;
+  font-size: 12.5px;
+}

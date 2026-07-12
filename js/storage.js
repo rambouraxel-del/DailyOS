@@ -78,6 +78,7 @@ function seedData() {
       { id: uid(), title: "Rappels", parentId: null, favorite: false, tags: [], status: "active", createdAt: Date.now() - 2000, updatedAt: Date.now() - 2000, blocks: [] },
       { id: uid(), title: "À creuser", parentId: null, favorite: false, tags: [], status: "active", createdAt: Date.now() - 1000, updatedAt: Date.now() - 1000, blocks: [] },
     ],
+    documents: [],
     settings: {
       city: "",
       weatherEnabled: true,
@@ -177,6 +178,10 @@ function load() {
     // compatibilité ascendante : notes -> format en blocs (voir migrateNote).
     // Exécutée à chaque chargement mais idempotente et non bloquante (simple map).
     merged.notes = (merged.notes || []).map(migrateNote);
+
+    // compatibilité ascendante : module Apprentissage, absent des données
+    // enregistrées avant son ajout.
+    merged.documents = merged.documents || [];
 
     // On réécrit immédiatement le résultat migré/fusionné en localStorage :
     // sans ça, les anciennes données resteraient "en attente de migration"
@@ -639,6 +644,40 @@ export function deleteChecklistItem(noteId, blockId, itemId) {
     block.items = (block.items || []).filter((i) => i.id !== itemId);
     note.updatedAt = Date.now();
   }
+  persist();
+}
+
+// ---------- Apprentissage (documents importés) ----------
+export function getDocuments() {
+  return state.documents;
+}
+export function addDocument(doc) {
+  const d = {
+    id: uid(),
+    name: (doc.name || "Document").trim(),
+    description: doc.description?.trim() || "",
+    fileName: doc.fileName || "",
+    mimeType: doc.mimeType || "",
+    dataUrl: doc.dataUrl || "",
+    read: false,
+    createdAt: Date.now(),
+  };
+  state.documents.push(d);
+  persist();
+  return d;
+}
+export function updateDocument(id, patch) {
+  const d = state.documents.find((d) => d.id === id);
+  if (d) Object.assign(d, patch);
+  persist();
+}
+export function toggleDocumentRead(id) {
+  const d = state.documents.find((d) => d.id === id);
+  if (d) d.read = !d.read;
+  persist();
+}
+export function deleteDocument(id) {
+  state.documents = state.documents.filter((d) => d.id !== id);
   persist();
 }
 

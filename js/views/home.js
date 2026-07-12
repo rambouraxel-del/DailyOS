@@ -82,6 +82,7 @@ export function renderHome(state) {
         ${quickCard("projects", "Projets", `${activeProjects} projet${activeProjects > 1 ? "s" : ""}`, "accent-blue", "go-projects")}
         ${quickCard("groceries", "Courses", `${groceriesLeft} article${groceriesLeft > 1 ? "s" : ""}`, "accent-orange", "go-groceries")}
         ${quickCard("notes", "Notes", `${state.notes.length} note${state.notes.length > 1 ? "s" : ""}`, "accent-pink", "go-notes")}
+        ${quickCard("learning", "Apprentissage", `${state.documents.length} document${state.documents.length > 1 ? "s" : ""}`, "accent-green", "go-learning")}
       </div>
     </div>
   `;

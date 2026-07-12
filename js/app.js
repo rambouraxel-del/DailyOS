@@ -8,6 +8,7 @@ import { renderNotes } from "./views/notes.js";
 import { renderNoteDetail, attachNoteEditorAutosave } from "./views/notes-editor.js";
 import { renderNotesTree } from "./views/notes-tree.js";
 import { renderNotesMindMap } from "./views/notes-mindmap.js";
+import { renderLearning } from "./views/learning.js";
 import * as modal from "./modal.js";
 import { toISODate, addDays } from "./date-utils.js";
 
@@ -56,6 +57,9 @@ function render() {
   if (ui.view === "projects" && ui.expandedProjectId) {
     attachProjectNotesAutosave();
   }
+  if (ui.view === "learning") {
+    attachLearningHandlers();
+  }
 }
 
 function buildViewHTML(state) {
@@ -84,6 +88,8 @@ function buildViewHTML(state) {
       return renderNotesTree(state, ui.treeCollapsed);
     case "notes-mindmap":
       return renderNotesMindMap(state, ui.mindMapRootId);
+    case "learning":
+      return renderLearning(state);
     default:
       return renderHome(state);
   }
@@ -106,6 +112,31 @@ function attachNotesSearch() {
       const pos = freshInput.value.length;
       freshInput.setSelectionRange(pos, pos);
     }
+  });
+}
+
+function attachLearningHandlers() {
+  viewRoot.querySelectorAll('[data-action="edit-doc-name"]').forEach((input) => {
+    input.addEventListener("input", () => store.updateDocument(input.dataset.id, { name: input.value }));
+  });
+  viewRoot.querySelectorAll('[data-action="edit-doc-desc"]').forEach((textarea) => {
+    textarea.addEventListener("input", () => store.updateDocument(textarea.dataset.id, { description: textarea.value }));
+  });
+  const fileInput = document.getElementById("doc-file-input");
+  fileInput?.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const name = file.name.replace(/\.[^.]+$/, "");
+        store.addDocument({ name, fileName: file.name, mimeType: file.type, dataUrl: reader.result });
+        render();
+      } catch (err) {
+        alert("Impossible d'importer ce fichier (trop volumineux pour le stockage local).");
+      }
+    };
+    reader.readAsDataURL(file);
   });
 }
 
@@ -141,6 +172,9 @@ document.addEventListener("click", (e) => {
       break;
     case "go-notes":
       navigate("notes");
+      break;
+    case "go-learning":
+      navigate("learning");
       break;
 
     case "open-add-modal": {
@@ -351,6 +385,20 @@ document.addEventListener("click", (e) => {
     case "set-agenda-mode":
       ui.agendaMode = target.dataset.mode;
       render();
+      break;
+
+    case "trigger-doc-import":
+      document.getElementById("doc-file-input")?.click();
+      break;
+    case "toggle-doc-read":
+      store.toggleDocumentRead(id);
+      render();
+      break;
+    case "delete-document":
+      if (confirm("Supprimer ce document ?")) {
+        store.deleteDocument(id);
+        render();
+      }
       break;
 
     case "open-grocery-categories":
