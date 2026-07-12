@@ -1915,3 +1915,17 @@ select.input {
   max-height: 60vh;
   overflow: auto;
 }
+.doc-preview-docx {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.doc-preview-docx h1,
+.doc-preview-docx h2,
+.doc-preview-docx h3 {
+  color: var(--text-primary);
+  margin: 14px 0 8px;
+}
+.doc-preview-docx p {
+  margin: 0 0 10px;
+}

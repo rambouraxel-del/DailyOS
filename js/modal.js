@@ -520,6 +520,14 @@ export async function openDocumentPreview(doc) {
   const mime = doc.mimeType || "";
   if (mime === "application/pdf") {
     body.innerHTML = `<iframe src="${escapeAttr(doc.dataUrl)}" class="doc-preview-frame"></iframe>`;
+  } else if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    try {
+      const buf = await (await fetch(doc.dataUrl)).arrayBuffer();
+      const result = await window.mammoth.convertToHtml({ arrayBuffer: buf });
+      body.innerHTML = `<div class="doc-preview-docx">${result.value}</div>`;
+    } catch {
+      body.innerHTML = `<p>Aperçu indisponible pour ce document Word.</p>`;
+    }
   } else if (mime.startsWith("text/")) {
     try {
       const text = await (await fetch(doc.dataUrl)).text();
