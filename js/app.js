@@ -28,6 +28,7 @@ const ui = {
   notesFilter: "all",
   treeCollapsed: new Set(),
   mindMapRootId: null,
+  editingDocId: null,
 };
 
 function navigate(view, opts = {}) {
@@ -89,7 +90,7 @@ function buildViewHTML(state) {
     case "notes-mindmap":
       return renderNotesMindMap(state, ui.mindMapRootId);
     case "learning":
-      return renderLearning(state);
+      return renderLearning(state, ui.editingDocId);
     default:
       return renderHome(state);
   }
@@ -116,12 +117,6 @@ function attachNotesSearch() {
 }
 
 function attachLearningHandlers() {
-  viewRoot.querySelectorAll('[data-action="edit-doc-name"]').forEach((input) => {
-    input.addEventListener("input", () => store.updateDocument(input.dataset.id, { name: input.value }));
-  });
-  viewRoot.querySelectorAll('[data-action="edit-doc-desc"]').forEach((textarea) => {
-    textarea.addEventListener("input", () => store.updateDocument(textarea.dataset.id, { description: textarea.value }));
-  });
   const fileInput = document.getElementById("doc-file-input");
   fileInput?.addEventListener("change", () => {
     const file = fileInput.files?.[0];
@@ -400,6 +395,27 @@ document.addEventListener("click", (e) => {
         render();
       }
       break;
+    case "edit-document":
+      ui.editingDocId = id;
+      render();
+      break;
+    case "cancel-edit-document":
+      ui.editingDocId = null;
+      render();
+      break;
+    case "save-document": {
+      const nameInput = document.getElementById(`doc-name-${id}`);
+      const descInput = document.getElementById(`doc-desc-${id}`);
+      store.updateDocument(id, { name: nameInput.value.trim() || "Document", description: descInput.value });
+      ui.editingDocId = null;
+      render();
+      break;
+    }
+    case "open-document": {
+      const doc = store.getDocuments().find((d) => d.id === id);
+      if (doc) modal.openDocumentPreview(doc);
+      break;
+    }
 
     case "open-grocery-categories":
       modal.openGroceryCategoriesModal();

@@ -507,6 +507,35 @@ function handleDeleteGroceryCategory(cat) {
   openGroceryCategoriesModal();
 }
 
+/* ---------- Apprentissage : aperçu de document ---------- */
+export async function openDocumentPreview(doc) {
+  open(`
+    <div class="modal-header">
+      <h2>${escapeHTML(doc.name)}</h2>
+      <button class="btn-icon" data-action="close-modal">${icon("close", { size: 18 })}</button>
+    </div>
+    <div id="doc-preview-body" class="doc-preview-body">Chargement…</div>
+  `);
+  const body = sheet.querySelector("#doc-preview-body");
+  const mime = doc.mimeType || "";
+  if (mime === "application/pdf") {
+    body.innerHTML = `<iframe src="${escapeAttr(doc.dataUrl)}" class="doc-preview-frame"></iframe>`;
+  } else if (mime.startsWith("text/")) {
+    try {
+      const text = await (await fetch(doc.dataUrl)).text();
+      body.innerHTML = `<pre class="doc-preview-text">${escapeHTML(text)}</pre>`;
+    } catch {
+      body.innerHTML = `<p>Aperçu indisponible.</p>`;
+    }
+  } else {
+    body.innerHTML = `<p>Aperçu non disponible pour ce format (${escapeHTML(doc.fileName || "")}). Télécharge-le pour l'ouvrir.</p>`;
+  }
+  body.insertAdjacentHTML(
+    "beforeend",
+    `<a class="btn-secondary mt-16" href="${escapeAttr(doc.dataUrl)}" download="${escapeAttr(doc.fileName || doc.name)}">Télécharger</a>`
+  );
+}
+
 /* ---------- Paramètres ---------- */
 export function openSettingsModal() {
   const s = store.getState().settings;

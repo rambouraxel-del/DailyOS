@@ -7,7 +7,7 @@
 // Ce mécanisme ne touche jamais au localStorage : les données utilisateur
 // (tâches, planning, projets, courses, notes, paramètres) ne sont jamais
 // stockées ici et ne sont donc jamais concernées par ce nettoyage.
-const CACHE_NAME = "dailyos-cache-v5";
+const CACHE_NAME = "dailyos-cache-v6";
 
 const APP_SHELL = [
   "./",
