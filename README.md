@@ -32,19 +32,44 @@ n'importe quelle journée. Ils s'affichent dans le calendrier et sont conservés
 
 ## Mémoire interne
 
-Aucune donnée ne se perd, ni entre deux sessions, ni après une mise à jour :
+Vos données sont stockées **uniquement sur cet appareil**, dans `localStorage`.
+Elles ne sont envoyées nulle part. L'application est conçue pour ne jamais les
+perdre silencieusement entre deux sessions ou après une mise à jour, mais rien
+ne remplace une sauvegarde régulière (export JSON) — notamment avant de
+changer d'appareil ou de vider le navigateur.
 
-- Stockage `localStorage` sous un **schéma versionné** (`SCHEMA_VERSION`).
+- Stockage sous un **schéma versionné** (`SCHEMA_VERSION`, actuellement 2).
 - **Migrations automatiques** : une sauvegarde écrite par une ancienne version
   est convertie au démarrage, jamais effacée.
 - **Copie de secours** écrite avant chaque enregistrement, relue si la clé
   principale devient illisible.
 - **Normalisation défensive** : une donnée corrompue ou partielle est réparée
-  plutôt que rejetée.
-- **Export / import JSON** depuis les Réglages, pour une sauvegarde manuelle
-  ou un transfert vers un autre appareil.
-- Le service worker ne met en cache que les fichiers de l'application ; il ne
-  touche jamais aux données utilisateur.
+  plutôt que rejetée (seule une date irrécupérable fait perdre un événement).
+- **Écritures fiabilisées** : `Storage.saveEvent()` (et les autres mutations)
+  renvoient `{ ok, ... }` ; l'interface n'affiche jamais un message de succès
+  si l'écriture sur le disque a réellement échoué (stockage plein, accès
+  refusé…). En cas d'échec, l'état en mémoire est annulé (rollback) pour
+  rester cohérent avec ce qui est vraiment sur le disque.
+- **Export / import JSON** depuis les Réglages. L'import prévient avant de
+  remplacer les données actuelles et conserve une copie de secours de l'état
+  précédent (`nousdeux.data.pre-import`) avant d'écraser quoi que ce soit.
+- Le service worker ne met en cache qu'une liste fermée de fichiers de
+  l'application ; il ne touche jamais aux données utilisateur et ne
+  transforme jamais une erreur réseau en réponse HTML hors des navigations.
+
+## Tests
+
+Tests unitaires, zéro dépendance :
+
+```bash
+node tests/run-unit.js
+```
+
+Couvrent : utilitaires de dates, validation, migrations de schéma,
+réparation défensive des données corrompues, création/édition/suppression
+d'événements, validation des horaires (journée entière, début seul,
+début + fin, fin ≤ début rejetée), panne d'écriture simulée (quota), et
+import/export JSON.
 
 ## Lancer l'application
 

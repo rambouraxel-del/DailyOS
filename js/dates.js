@@ -117,11 +117,25 @@
     return 'Il y a ' + Math.abs(n) + ' jours';
   }
 
-  /** 'HH:MM' -> minutes depuis minuit */
+  /** 'HH:MM' -> minutes depuis minuit (null si vide ou invalide) */
   function timeToMinutes(t) {
-    if (!t) return null;
+    if (!isValidTimeString(t)) return null;
     var p = String(t).split(':');
-    return (+p[0]) * 60 + (+p[1] || 0);
+    return (+p[0]) * 60 + (+p[1]);
+  }
+
+  /** Une date au format strict 'YYYY-MM-DD', calendaire réellement valide */
+  function isValidDateKey(key) {
+    if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+    var p = key.split('-');
+    var y = +p[0], m = +p[1], d = +p[2];
+    if (m < 1 || m > 12) return false;
+    return d >= 1 && d <= daysInMonth(y, m - 1);
+  }
+
+  /** Une heure au format strict 'HH:MM' (00:00 à 23:59) */
+  function isValidTimeString(t) {
+    return typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
   }
 
   global.Dates = {
@@ -134,6 +148,8 @@
     monthLabel: monthLabel, dayLabel: dayLabel, dayLabelLong: dayLabelLong,
     weekLabel: weekLabel,
     daysUntil: daysUntil, countdownLabel: countdownLabel,
-    timeToMinutes: timeToMinutes
+    timeToMinutes: timeToMinutes,
+    isValidDateKey: isValidDateKey,
+    isValidTimeString: isValidTimeString
   };
 })(window);

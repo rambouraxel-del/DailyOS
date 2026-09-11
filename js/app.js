@@ -34,6 +34,7 @@
       tabbar.appendChild(el('button', {
         class: 'tab' + (current === key ? ' is-active' : ''),
         type: 'button',
+        'aria-current': current === key ? 'page' : null,
         onclick: function () { go(key); }
       }, [
         el('span', { class: 'tab-emoji', text: s.emoji }),

@@ -4,8 +4,14 @@
    Les données utilisateur vivent dans localStorage et ne sont
    jamais touchées ici — une mise à jour ne les efface pas.
    ============================================================ */
-const CACHE_NAME = 'nousdeux-v1.0.0';
+importScripts('./js/version.js');
 
+const CACHE_NAME = 'nousdeux-cache-v' + (self.APP_VERSION || '0');
+
+// Liste fermée des fichiers de l'application. Aucune autre requête n'est
+// mise en cache : une future API n'y sera jamais ajoutée par erreur, et une
+// erreur réseau sur une requête hors de cette liste ne sera jamais masquée
+// par une réponse HTML de repli.
 const ASSETS = [
   './',
   './index.html',
@@ -45,17 +51,41 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  // Réseau d'abord, cache en secours : l'app reste à jour
-  // tout en fonctionnant sans connexion.
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
+  const url = new URL(req.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const isAsset = isSameOrigin && ASSETS.some((a) => new URL(a, self.location.href).pathname === url.pathname);
+
+  if (isAsset) {
+    // Fichiers de l'app : cache d'abord (rapide, fonctionne hors-ligne),
+    // avec mise à jour silencieuse du cache en arrière-plan.
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        const network = fetch(req).then((response) => {
+          if (response && response.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, response.clone()));
+          }
+          return response;
+        }).catch(() => cached);
+        return cached || network;
       })
-      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('./index.html')))
-  );
+    );
+    return;
+  }
+
+  if (req.mode === 'navigate') {
+    // Navigation vers une page de l'app (ex. ouverture depuis l'écran
+    // d'accueil) : on tente le réseau, et on retombe sur la page mise en
+    // cache pour rester utilisable hors-ligne.
+    event.respondWith(
+      fetch(req).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // Tout le reste (futures requêtes d'API, ressources externes…) n'est ni
+  // intercepté ni mis en cache : le navigateur les traite normalement, sans
+  // qu'une erreur réseau ne soit jamais transformée en réponse HTML.
 });

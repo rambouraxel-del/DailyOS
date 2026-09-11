@@ -6,13 +6,17 @@
 
   var el = UI.el;
   var overlay = null;
+  var releaseTrap = null;
+  var previousFocus = null;
 
   function close() {
     if (!overlay) return;
+    if (releaseTrap) { releaseTrap(); releaseTrap = null; }
     overlay.classList.remove('is-open');
     var node = overlay;
     setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 180);
     overlay = null;
+    if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
   }
 
   function open(dateKey, onChange) {
@@ -28,21 +32,23 @@
       }
       list.forEach(function (s) {
         current.appendChild(el('button', {
-          class: 'sticker-chip', type: 'button', title: 'Retirer',
+          class: 'sticker-chip', type: 'button', 'aria-label': 'Retirer ' + s.emoji,
           onclick: function () {
-            Storage.removeSticker(s.id);
+            var result = Storage.removeSticker(s.id);
+            if (!result.ok) { UI.toast(result.message || 'Suppression impossible'); return; }
             refreshCurrent();
             if (onChange) onChange();
           }
-        }, [el('span', { text: s.emoji }), el('span', { class: 'sticker-x', text: '✕' })]));
+        }, [el('span', { text: s.emoji, 'aria-hidden': 'true' }), el('span', { class: 'sticker-x', 'aria-hidden': 'true', text: '✕' })]));
       });
     }
 
     Config.STICKERS.forEach(function (emoji) {
       grid.appendChild(el('button', {
-        class: 'sticker-pick', type: 'button', text: emoji,
+        class: 'sticker-pick', type: 'button', text: emoji, 'aria-label': 'Ajouter ' + emoji,
         onclick: function () {
-          Storage.addSticker(dateKey, emoji);
+          var result = Storage.addSticker(dateKey, emoji);
+          if (!result.ok) { UI.toast(result.message || 'Ajout impossible'); return; }
           refreshCurrent();
           if (onChange) onChange();
         }
@@ -68,6 +74,7 @@
       ])
     ]);
 
+    previousFocus = document.activeElement;
     overlay = el('div', {
       class: 'overlay',
       onclick: function (e) { if (e.target === overlay) close(); }
@@ -75,6 +82,7 @@
 
     document.body.appendChild(overlay);
     requestAnimationFrame(function () { overlay.classList.add('is-open'); });
+    releaseTrap = UI.trapFocus(sheet);
   }
 
   document.addEventListener('keydown', function (e) {

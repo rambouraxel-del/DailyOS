@@ -12,6 +12,26 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Nous Deux" />
   <link rel="stylesheet" href="css/styles.css" />
+  <script>
+    // Anti-FOUC : applique le thème (et sa couleur de barre de statut) AVANT
+    // le premier rendu, pour éviter un flash du thème par défaut (rose)
+    // quand un thème différent a été choisi. Garder BG synchronisé avec les
+    // valeurs --bg de css/styles.css.
+    (function () {
+      var BG = { light: '#f6f7fb', dark: '#14161f', love: '#fff5f8', nature: '#f2f8f1', space: '#0d0b1c' };
+      var DARK = { dark: true, space: true };
+      var id = 'love';
+      try {
+        var raw = window.localStorage.getItem('nousdeux.data');
+        var theme = raw && JSON.parse(raw).settings && JSON.parse(raw).settings.theme;
+        if (Object.prototype.hasOwnProperty.call(BG, theme)) id = theme;
+      } catch (e) { /* pas grave : on garde le thème par défaut */ }
+      document.documentElement.setAttribute('data-theme', id);
+      document.documentElement.style.colorScheme = DARK[id] ? 'dark' : 'light';
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', BG[id]);
+    })();
+  </script>
 </head>
 <body>
   <main id="view" class="view"></main>

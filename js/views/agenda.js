@@ -176,8 +176,8 @@
       return wrap;
     }
 
-    /* Événements sans heure : en tête */
-    var allDay = events.filter(function (e) { return !e.start; });
+    /* Événements journée entière : en tête */
+    var allDay = events.filter(function (e) { return e.allDay || !e.start; });
     if (allDay.length) {
       var box = el('div', { class: 'day-allday' });
       allDay.forEach(function (evt) { box.appendChild(eventPill(evt)); });
@@ -185,7 +185,7 @@
     }
 
     /* Timeline horaire */
-    var timed = events.filter(function (e) { return !!e.start; });
+    var timed = events.filter(function (e) { return !e.allDay && !!e.start; });
     if (timed.length) {
       var range = hourRange(timed);
       var timeline = el('div', { class: 'timeline' });

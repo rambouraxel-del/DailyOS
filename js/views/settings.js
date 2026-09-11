@@ -8,21 +8,26 @@
   var root = null;
 
   function themePicker(settings) {
-    var grid = el('div', { class: 'theme-grid' });
+    var grid = el('div', { class: 'theme-grid', role: 'group', 'aria-label': 'Thème de l\'application' });
     Config.THEMES.forEach(function (t) {
       grid.appendChild(el('button', {
         class: 'theme-card theme-preview-' + t.id + (settings.theme === t.id ? ' is-active' : ''),
         type: 'button',
+        'aria-pressed': settings.theme === t.id ? 'true' : 'false',
         onclick: function () {
-          Storage.setSetting('theme', t.id);
+          var result = Storage.setSetting('theme', t.id);
+          if (!result.ok) {
+            UI.toast(result.message || 'Impossible d\'enregistrer le thème');
+            return;
+          }
           Themes.apply(t.id);
           UI.toast('Thème « ' + t.label + ' » appliqué ' + t.emoji);
           render();
         }
       }, [
-        el('span', { class: 'theme-emoji', text: t.emoji }),
+        el('span', { class: 'theme-emoji', text: t.emoji, 'aria-hidden': 'true' }),
         el('span', { class: 'theme-label', text: t.label }),
-        el('span', { class: 'theme-dots' }, [
+        el('span', { class: 'theme-dots', 'aria-hidden': 'true' }, [
           el('i', { class: 'td td1' }), el('i', { class: 'td td2' }), el('i', { class: 'td td3' })
         ])
       ]));
@@ -48,19 +53,39 @@
     }
   }
 
+  function applyImportResult(result) {
+    if (!result.ok) {
+      var messages = {
+        parse: 'Ce fichier n\'est pas lisible (JSON invalide).',
+        structure: 'Ce fichier ne ressemble pas à une sauvegarde Nous Deux.',
+        quota: result.message,
+        write: 'Impossible d\'écrire les données restaurées sur cet appareil.'
+      };
+      UI.toast(messages[result.code] || result.message || 'Import impossible');
+      return;
+    }
+    Themes.apply(Storage.getSettings().theme);
+    UI.toast('Sauvegarde restaurée ✅');
+    render();
+  }
+
   function importBackup(file) {
-    var reader = new FileReader();
-    reader.onload = function () {
-      try {
-        Storage.importJSON(String(reader.result));
-        Themes.apply(Storage.getSettings().theme);
-        UI.toast('Sauvegarde restaurée ✅');
-        render();
-      } catch (err) {
-        UI.toast('Fichier illisible 😕');
+    UI.confirmDialog({
+      title: 'Remplacer les données actuelles ?',
+      message: 'Importer ce fichier remplacera tous les événements, autocollants et réglages actuellement sur cet appareil. Une copie de sécurité de l\'état actuel est conservée localement.',
+      confirmLabel: 'Importer',
+      danger: true,
+      onConfirm: function () {
+        var reader = new FileReader();
+        reader.onload = function () {
+          applyImportResult(Storage.importJSON(String(reader.result)));
+        };
+        reader.onerror = function () {
+          UI.toast('Impossible de lire ce fichier');
+        };
+        reader.readAsText(file);
       }
-    };
-    reader.readAsText(file);
+    });
   }
 
   function render() {
@@ -78,17 +103,19 @@
 
     /* --- Prénoms --- */
     root.appendChild(el('h3', { class: 'section-title', text: 'Le couple' }));
-    var inputA = el('input', { class: 'input', type: 'text', value: settings.partnerA, maxlength: '24' });
-    var inputB = el('input', { class: 'input', type: 'text', value: settings.partnerB, maxlength: '24' });
+    var idA = 'settings-partner-a', idB = 'settings-partner-b';
+    var inputA = el('input', { id: idA, class: 'input', type: 'text', value: settings.partnerA, maxlength: '24' });
+    var inputB = el('input', { id: idB, class: 'input', type: 'text', value: settings.partnerB, maxlength: '24' });
     function saveNames() {
-      Storage.setSetting('partnerA', inputA.value.trim() || 'Moi');
-      Storage.setSetting('partnerB', inputB.value.trim() || 'Toi');
+      var resultA = Storage.setSetting('partnerA', inputA.value.trim() || 'Moi');
+      var resultB = resultA.ok ? Storage.setSetting('partnerB', inputB.value.trim() || 'Toi') : resultA;
+      if (!resultB.ok) UI.toast(resultB.message || 'Impossible d\'enregistrer');
     }
     inputA.addEventListener('change', saveNames);
     inputB.addEventListener('change', saveNames);
     root.appendChild(el('div', { class: 'card' }, [
-      el('label', { class: 'field' }, [el('span', { class: 'field-label', text: 'Prénom 1' }), inputA]),
-      el('label', { class: 'field' }, [el('span', { class: 'field-label', text: 'Prénom 2' }), inputB])
+      el('div', { class: 'field' }, [el('label', { class: 'field-label', for: idA, text: 'Prénom 1' }), inputA]),
+      el('div', { class: 'field' }, [el('label', { class: 'field-label', for: idB, text: 'Prénom 2' }), inputB])
     ]));
 
     /* --- Données --- */
@@ -98,12 +125,14 @@
     var fileInput = el('input', { type: 'file', accept: 'application/json,.json', style: 'display:none' });
     fileInput.addEventListener('change', function () {
       if (fileInput.files && fileInput.files[0]) importBackup(fileInput.files[0]);
+      fileInput.value = '';
     });
 
     root.appendChild(el('div', { class: 'card' }, [
       el('p', { class: 'muted small', text:
-        'Tout est enregistré sur cet appareil et conservé d\'une session à l\'autre, ' +
-        'y compris après une mise à jour de l\'application (schéma v' + Storage.SCHEMA_VERSION + ').' }),
+        'Vos données sont stockées uniquement sur cet appareil (schéma v' + Storage.SCHEMA_VERSION + '). ' +
+        'Elles ne sont pas envoyées ailleurs : pensez à exporter régulièrement une sauvegarde, ' +
+        'notamment avant de changer d\'appareil.' }),
       el('div', { class: 'btn-row' }, [
         el('button', { class: 'btn btn-soft', type: 'button', text: '💾 Exporter', onclick: downloadBackup }),
         el('button', { class: 'btn btn-soft', type: 'button', text: '📥 Importer', onclick: function () { fileInput.click(); } })
@@ -122,11 +151,22 @@
       el('button', {
         class: 'btn btn-ghost btn-danger full', type: 'button', text: 'Tout effacer',
         onclick: function () {
-          if (!UI.confirmBox('Effacer tous les événements et réglages ? Cette action est irréversible.')) return;
-          Storage.resetAll();
-          Themes.apply(Storage.getSettings().theme);
-          UI.toast('Application réinitialisée');
-          render();
+          UI.confirmDialog({
+            title: 'Tout effacer ?',
+            message: 'Tous les événements, autocollants et réglages seront supprimés de cet appareil. Cette action est irréversible.',
+            confirmLabel: 'Tout effacer',
+            danger: true,
+            onConfirm: function () {
+              var result = Storage.resetAll();
+              if (!result.ok) {
+                UI.toast(result.message || 'Impossible de réinitialiser');
+                return;
+              }
+              Themes.apply(Storage.getSettings().theme);
+              UI.toast('Application réinitialisée');
+              render();
+            }
+          });
         }
       })
     ]));
