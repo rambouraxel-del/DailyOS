@@ -1,138 +1,112 @@
-import { icon } from "../icons.js";
-import { checkRow, sortByDoneThenDate, emptyState } from "../components.js";
-import { formatFullDateFR, getISOWeekNumber, toISODate } from "../date-utils.js";
-import { getWeather } from "../weather.js";
-import * as store from "../storage.js";
+/* ============================================================
+   Vue Accueil — prochains événements & compteurs
+   ============================================================ */
+(function (global) {
+  'use strict';
 
-const WEATHER_ICON_COLOR = {
-  sun: "weather-icon",
-};
+  var el = UI.el;
+  var root = null;
 
-export function renderHome(state) {
-  const today = toISODate(new Date());
-  const todaysTasks = sortByDoneThenDate(state.tasks);
-  const doneCount = state.tasks.filter((t) => !t.done).length;
-  const todaysEvents = state.events
-    .filter((e) => e.date === today)
-    .sort((a, b) => a.startTime.localeCompare(b.startTime))
-    .slice(0, 4);
-
-  const activeProjects = state.projects.length;
-  const groceriesLeft = state.groceries.filter((g) => !g.done).length;
-
-  return `
-    <div class="home-header">
-      <div>
-        <h1>Bonjour Axel 👋</h1>
-        <p>Prêt à organiser ta journée ?</p>
-      </div>
-      <button class="avatar" data-action="open-settings" aria-label="Paramètres">${icon("settings", { size: 20 })}</button>
-    </div>
-
-    <div class="glass-card date-weather-card">
-      <div class="date-block">
-        <span class="date-icon">${icon("calendar", { size: 20 })}</span>
-        <div class="date-text">
-          <div class="date-main">${formatFullDateFR(new Date())}</div>
-          <div class="date-sub">Semaine ${getISOWeekNumber(new Date())}</div>
-        </div>
-      </div>
-      <div id="weather-slot" class="weather-block">${weatherLoadingHTML()}</div>
-    </div>
-
-    <div class="home-grid">
-      <div class="glass-card today-card" data-action="go-tasks">
-        <div class="card-header-row">
-          <h3>Ma to-do list</h3>
-          <span class="badge badge-accent">${state.tasks.length} tâche${state.tasks.length > 1 ? "s" : ""}</span>
-        </div>
-        <ul class="check-list">
-          ${
-            todaysTasks.length
-              ? todaysTasks
-                  .slice(0, 6)
-                  .map((t) => checkRow(t, { toggle: "toggle-task", delete: "delete-task" }))
-                  .join("")
-              : emptyState("Aucune tâche pour l'instant.")
-          }
-        </ul>
-        <button class="btn-primary mt-16" data-action="open-add-modal" data-add-type="task">
-          ${icon("plus", { size: 18 })} Ajouter une tâche
-        </button>
-      </div>
-
-      <div class="glass-card planning-card" data-action="go-planning">
-        <div class="card-header-row">
-          <h3>Mon agenda</h3>
-          <span class="badge">${todaysEvents.length}</span>
-        </div>
-        <div class="mini-event-list">
-          ${
-            todaysEvents.length
-              ? todaysEvents.map(miniEvent).join("")
-              : emptyState("Aucun événement aujourd'hui.")
-          }
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="quick-grid">
-        ${quickCard("tasks", "Tâches", `${doneCount} à faire`, "accent-violet", "go-tasks")}
-        ${quickCard("projects", "Projets", `${activeProjects} projet${activeProjects > 1 ? "s" : ""}`, "accent-blue", "go-projects")}
-        ${quickCard("groceries", "Courses", `${groceriesLeft} article${groceriesLeft > 1 ? "s" : ""}`, "accent-orange", "go-groceries")}
-        ${quickCard("notes", "Notes", `${state.notes.length} note${state.notes.length > 1 ? "s" : ""}`, "accent-pink", "go-notes")}
-        ${quickCard("learning", "Apprentissage", `${state.documents.length} document${state.documents.length > 1 ? "s" : ""}`, "accent-green", "go-learning")}
-      </div>
-    </div>
-  `;
-}
-
-function quickCard(iconName, label, count, accentClass, navAction) {
-  return `
-    <button class="glass-card quick-card" data-action="${navAction}">
-      <span class="quick-icon ${accentClass}">${icon(iconName, { size: 22 })}</span>
-      <span class="quick-label">${label}</span>
-      <span class="quick-count">${count}</span>
-    </button>
-  `;
-}
-
-function miniEvent(evt) {
-  return `
-    <div class="mini-event" data-action="go-planning">
-      <span class="mini-event-time">${evt.startTime}</span>
-      <span class="mini-event-dot dot-${evt.color}"></span>
-      <span class="mini-event-title">${evt.title}</span>
-    </div>
-  `;
-}
-
-function weatherLoadingHTML() {
-  return `<div class="weather-unavailable">Chargement…</div>`;
-}
-
-export async function loadWeatherInto(container, settings) {
-  const result = await getWeather(settings);
-  if (!container) return;
-  if (result.error === "disabled") {
-    container.innerHTML = `<div class="weather-unavailable">Météo désactivée</div>`;
-    return;
+  function upcoming(limit) {
+    var todayKey = Dates.todayKey();
+    return Storage.getEvents()
+      .filter(function (e) { return e.date >= todayKey; })
+      .sort(function (a, b) {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+        return (a.start || '99:99').localeCompare(b.start || '99:99');
+      })
+      .slice(0, limit || 6);
   }
-  if (result.error) {
-    container.innerHTML = `
-      <div class="weather-unavailable">
-        Météo indisponible
-        <button data-action="open-settings">Configurer une ville</button>
-      </div>`;
-    return;
+
+  function heroCard(evt, settings) {
+    var type = Config.typeById(evt.type);
+    return el('article', {
+      class: 'hero-card', style: '--evt:' + (evt.color || type.color),
+      onclick: function () { EventForm.open({ eventId: evt.id, onSaved: render }); }
+    }, [
+      el('div', { class: 'hero-count', text: Dates.countdownLabel(evt.date) }),
+      el('h2', { class: 'hero-title', text: type.emoji + ' ' + evt.title }),
+      el('p', { class: 'hero-meta', text: Dates.dayLabel(Dates.fromKey(evt.date)) + (evt.start ? ' · ' + evt.start : '') }),
+      evt.place ? el('p', { class: 'hero-meta', text: '📍 ' + evt.place }) : null,
+      el('p', { class: 'hero-meta', text: Config.whoEmoji(evt.who) + ' ' + Config.whoLabel(evt.who, settings) })
+    ]);
   }
-  store.updateSettings({ lastWeather: result });
-  container.innerHTML = `
-    <span class="weather-icon">${icon(result.icon, { size: 30 })}</span>
-    <div>
-      <div class="weather-temp">${result.temperature}°C</div>
-      <div class="weather-label">${result.label}</div>
-    </div>
-  `;
-}
+
+  function listRow(evt, settings) {
+    var type = Config.typeById(evt.type);
+    var d = Dates.fromKey(evt.date);
+    return el('button', {
+      class: 'row', type: 'button', style: '--evt:' + (evt.color || type.color),
+      onclick: function () { EventForm.open({ eventId: evt.id, onSaved: render }); }
+    }, [
+      el('div', { class: 'row-date' }, [
+        el('span', { class: 'row-day', text: String(d.getDate()) }),
+        el('span', { class: 'row-month', text: Dates.MOIS[d.getMonth()].slice(0, 3).toLowerCase() })
+      ]),
+      el('div', { class: 'row-main' }, [
+        el('span', { class: 'row-title', text: type.emoji + ' ' + evt.title }),
+        el('span', { class: 'row-meta', text: [
+          evt.start || null,
+          evt.place || null,
+          Config.whoLabel(evt.who, settings)
+        ].filter(Boolean).join(' · ') })
+      ]),
+      el('span', { class: 'row-count', text: Dates.countdownLabel(evt.date) })
+    ]);
+  }
+
+  function render() {
+    if (!root) return;
+    UI.clear(root);
+    var settings = Storage.getSettings();
+    var events = upcoming(7);
+    var all = Storage.getEvents();
+
+    root.appendChild(el('header', { class: 'home-head' }, [
+      el('p', { class: 'home-hello', text: 'Bonjour ' + (settings.partnerA || '') + ' & ' + (settings.partnerB || '') + ' 💞' }),
+      el('h1', { class: 'home-title', text: 'Nous Deux' }),
+      el('p', { class: 'muted small', text: Dates.dayLabelLong(new Date()) })
+    ]));
+
+    if (!events.length) {
+      root.appendChild(el('div', { class: 'empty' }, [
+        el('div', { class: 'empty-emoji', text: '💌' }),
+        el('p', { class: 'muted', text: all.length
+          ? 'Plus rien de prévu devant vous… on planifie quelque chose ?'
+          : 'Aucun événement pour l\'instant. Créez votre premier souvenir !' }),
+        el('button', {
+          class: 'btn btn-primary', type: 'button', text: '+ Créer un événement',
+          onclick: function () { EventForm.open({ onSaved: function () { App.go('agenda'); } }); }
+        })
+      ]));
+      return;
+    }
+
+    root.appendChild(heroCard(events[0], settings));
+
+    if (events.length > 1) {
+      root.appendChild(el('h3', { class: 'section-title', text: 'À venir' }));
+      var list = el('div', { class: 'list' });
+      events.slice(1).forEach(function (evt) { list.appendChild(listRow(evt, settings)); });
+      root.appendChild(list);
+    }
+
+    root.appendChild(el('div', { class: 'stats' }, [
+      el('div', { class: 'stat' }, [
+        el('strong', { text: String(all.length) }),
+        el('span', { text: all.length > 1 ? 'événements' : 'événement' })
+      ]),
+      el('div', { class: 'stat' }, [
+        el('strong', { text: String(Storage.getStickers().length) }),
+        el('span', { text: Storage.getStickers().length > 1 ? 'autocollants' : 'autocollant' })
+      ])
+    ]));
+  }
+
+  function mount(container) {
+    root = container;
+    render();
+  }
+
+  global.HomeView = { mount: mount, render: render };
+})(window);
