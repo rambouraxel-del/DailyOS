@@ -1,22 +1,38 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="love">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DailyOS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Nous Deux — l'agenda du couple</title>
+  <meta name="description" content="L'agenda partagé pour organiser vos sorties, vos dates et vos activités à deux." />
+  <meta name="theme-color" content="#fff5f8" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-  <meta name="theme-color" content="#05050a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Nous Deux" />
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <main id="view" class="view"></main>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js');
-      });
-    }
-  </script>
+  <button id="fab" class="fab" type="button" aria-label="Nouvel événement">+</button>
+
+  <nav id="tabbar" class="tabbar" aria-label="Navigation principale"></nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/version.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/dates.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/themes.js"></script>
+  <script src="js/stickers.js"></script>
+  <script src="js/event-form.js"></script>
+  <script src="js/views/home.js"></script>
+  <script src="js/views/agenda.js"></script>
+  <script src="js/views/settings.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
